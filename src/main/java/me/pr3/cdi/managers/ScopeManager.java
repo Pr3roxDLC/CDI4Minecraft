@@ -25,12 +25,11 @@ import java.util.stream.Collectors;
 
 public class ScopeManager {
     public static ScopeManager INSTANCE;
+    public GameScopeEventManager GAME_SCOPE_EVENT_MANAGER;
     Set<Class<?>> scopes;    //All Registered Scopes
     HashMap<Class<?>, Set<Class<?>>> scopeMap; //Map<ScopeClass,Set<ScopedClass>>
     HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Set<Instance>>
     HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
-
-
 
     public ScopeManager() {
         MinecraftForge.EVENT_BUS.register(this);
@@ -40,9 +39,10 @@ public class ScopeManager {
         injectionMap = getInjectionMap();
 
         INSTANCE = this;
-        GameScopeEventManager eventManager = new GameScopeEventManager();
+        GAME_SCOPE_EVENT_MANAGER = new GameScopeEventManager();
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private HashMap<Class<?>, Set<Class<?>>> getInjectionMap() {
         HashMap<Class<?>, Set<Class<?>>> injectionMap = new HashMap<>();
         Reflections ref = new Reflections();
@@ -68,7 +68,7 @@ public class ScopeManager {
         return new Reflections().getTypesAnnotatedWith(Scope.class).stream().filter(Class::isAnnotation).collect(Collectors.toSet());
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private HashMap<Class<?>, Set<Class<?>>> getScopeMap() {
         Reflections reflections = new Reflections();
         HashMap<Class<?>, Set<Class<?>>> scopeMap = new HashMap<>();
@@ -98,11 +98,11 @@ public class ScopeManager {
             MinecraftForge.EVENT_BUS.unregister(object);
         });
         scopedObjectsMap.get(scope).clear();
-        for (Class clazz : scopedClasses) {
+        for (Class<?> clazz : scopedClasses) {
             createNewInstance(clazz);
         }
         //Now update all the injected Instances in their target instances
-        for (Class clazz : scopedClasses) {
+        for (Class<?> clazz : scopedClasses) {
             getInstanceIfPresent(clazz).ifPresent(injectedInstance -> {
                 for (Class<?> target : injectionMap.get(clazz)) {
                     getInstanceIfPresent(target).ifPresent(injectionTarget -> {
