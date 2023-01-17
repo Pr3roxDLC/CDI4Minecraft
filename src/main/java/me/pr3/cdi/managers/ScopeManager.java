@@ -2,6 +2,7 @@ package me.pr3.cdi.managers;
 
 import it.unimi.dsi.fastutil.Hash;
 import me.pr3.cdi.annotations.Inject;
+import me.pr3.cdi.annotations.PostConstruct;
 import me.pr3.cdi.annotations.scopes.Scope;
 import me.pr3.cdi.api.Injectable;
 import net.minecraftforge.common.MinecraftForge;
@@ -10,6 +11,7 @@ import org.reflections.Reflections;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -150,6 +152,13 @@ public class ScopeManager {
         getScopeForClass(clazz).ifPresent(scope -> {
             scopedObjectsMap.get(scope).put(clazz, atomicReference.get());
         });
+        getPostConstruct(clazz).ifPresent(method -> {
+            try {
+                method.invoke(atomicReference.get());
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        });
         return atomicReference.get();
     }
 
@@ -187,6 +196,10 @@ public class ScopeManager {
                 }
             }
         }
+    }
+
+    private Optional<Method> getPostConstruct(Class<?> clazz){
+        return Arrays.stream(clazz.getMethods()).filter(method -> method.isAnnotationPresent(PostConstruct.class)).findFirst();
     }
 
 }

@@ -1,6 +1,7 @@
 package example;
 
 import me.pr3.cdi.annotations.Inject;
+import me.pr3.cdi.annotations.PostConstruct;
 import me.pr3.cdi.annotations.scopes.ClientScoped;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -12,7 +13,11 @@ public class    Car {
     public Engine engine;
 
     public Car(){
-        System.out.println("Created Car");
+    }
+
+    @PostConstruct
+    public void postConstruct(){
+        System.out.println("Created Car with engine " + engine);
         MinecraftForge.EVENT_BUS.register(this);
     }
 
