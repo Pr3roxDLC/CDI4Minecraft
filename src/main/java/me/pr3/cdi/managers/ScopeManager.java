@@ -1,0 +1,192 @@
+package me.pr3.cdi.managers;
+
+import it.unimi.dsi.fastutil.Hash;
+import me.pr3.cdi.annotations.Inject;
+import me.pr3.cdi.annotations.scopes.Scope;
+import me.pr3.cdi.api.Injectable;
+import net.minecraftforge.common.MinecraftForge;
+import org.reflections.Reflections;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
+
+public class ScopeManager {
+    public static ScopeManager INSTANCE;
+    Set<Class<?>> scopes;    //All Registered Scopes
+    HashMap<Class<?>, Set<Class<?>>> scopeMap; //Map<ScopeClass,Set<ScopedClass>>
+    HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Set<Instance>>
+    HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
+
+
+    public ScopeManager() {
+        MinecraftForge.EVENT_BUS.register(this);
+        scopes = getScopes();
+        scopeMap = getScopeMap();
+        scopedObjectsMap = getEmptyScopedObjectsMap();
+        injectionMap = getInjectionMap();
+
+        INSTANCE = this;
+        GameScopeEventManager eventManager = new GameScopeEventManager();
+    }
+
+    private HashMap<Class<?>, Set<Class<?>>> getInjectionMap() {
+        HashMap<Class<?>, Set<Class<?>>> injectionMap = new HashMap<>();
+        Reflections ref = new Reflections();
+        HashSet<Class<?>> allScopedClasses = new HashSet<>();
+        for (Class scope : scopes) {
+            allScopedClasses.addAll(ref.getTypesAnnotatedWith(scope));
+        }
+        for (Class<?> injectedClass : allScopedClasses) {
+            HashSet<Class<?>> targetsForInjectedClass = new HashSet<>();
+            for (Class<?> targetClass : allScopedClasses) {
+                for (Field field : targetClass.getFields()) {
+                    if (field.isAnnotationPresent(Inject.class) && field.getType().equals(injectedClass)) {
+                        targetsForInjectedClass.add(targetClass);
+                    }
+                }
+            }
+            injectionMap.put(injectedClass, targetsForInjectedClass);
+        }
+        return injectionMap;
+    }
+
+    private Set<Class<?>> getScopes() {
+        return new Reflections().getTypesAnnotatedWith(Scope.class).stream().filter(Class::isAnnotation).collect(Collectors.toSet());
+    }
+
+    @SuppressWarnings("unchecked")
+    private HashMap<Class<?>, Set<Class<?>>> getScopeMap() {
+        Reflections reflections = new Reflections();
+        HashMap<Class<?>, Set<Class<?>>> scopeMap = new HashMap<>();
+        for (Class clazz : scopes) {
+            Set<Class<?>> scopedClasses = reflections.getTypesAnnotatedWith(clazz);
+            scopeMap.put(clazz, scopedClasses);
+        }
+        return scopeMap;
+    }
+
+    private HashMap<Class<?>, HashMap<Class<?>, Object>> getEmptyScopedObjectsMap() {
+        return new HashMap<Class<?>, HashMap<Class<?>, Object>>() {{
+            for (Class<?> scope : scopes) {
+                put(scope, new HashMap<>());
+            }
+        }};
+    }
+
+    public void initScope(Class<?> scope) {
+        Set<Class<?>> scopedClasses = scopeMap.get(scope);
+        scopedObjectsMap.get(scope).values().forEach(object -> {
+            //Call destroy method if object implements Injectable
+            if (object instanceof Injectable) {
+                ((Injectable) object).destroy();
+            }
+            //Unsubscribe all objects from any event systems
+            MinecraftForge.EVENT_BUS.unregister(object);
+        });
+        scopedObjectsMap.get(scope).clear();
+        for (Class clazz : scopedClasses) {
+            createNewInstance(clazz);
+        }
+        //Now update all the injected Instances in their target instances
+        for (Class clazz : scopedClasses) {
+            getInstanceIfPresent(clazz).ifPresent(injectedInstance -> {
+                for (Class<?> target : injectionMap.get(clazz)) {
+                    getInstanceIfPresent(target).ifPresent(injectionTarget -> {
+                        setFieldOfTypeForInstance(clazz, injectedInstance, injectionTarget);
+                    });
+                }
+            });
+        }
+    }
+
+    public Object createNewInstance(Class<?> clazz) {
+        AtomicReference<Object> atomicReference = new AtomicReference<>();
+        //Create Populate Instance with injected instances from constructor
+        getInjectConstructor(clazz).ifPresent(constructor -> {
+            Class<?>[] parameterTypes = constructor.getParameterTypes();
+            List<Object> parameterInstances = new ArrayList<>();
+            for (Class<?> parameterType : parameterTypes) {
+                parameterInstances.add(getInstanceIfPresent(parameterType).orElseGet(() -> createNewInstance(parameterType)));
+            }
+            try {
+                atomicReference.set(constructor.newInstance(parameterInstances));
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        //If no instance was created using the constructor, call the no-args constructor, so we have an instance of which we can fill the
+        //@Inject Annotated Fields
+        if (atomicReference.get() == null) {
+            try {
+                atomicReference.set(clazz.getDeclaredConstructor().newInstance());
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                     NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        //Now populate fields
+        for (Field field : clazz.getFields()) {
+            if (field.isAnnotationPresent(Inject.class)) {
+                Class<?> fieldType = field.getType();
+                try {
+                    field.set(atomicReference.get(), getInstanceIfPresent(fieldType).orElseGet(() -> createNewInstance(fieldType)));
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+        getScopeForClass(clazz).ifPresent(scope -> {
+            scopedObjectsMap.get(scope).put(clazz, atomicReference.get());
+        });
+        return atomicReference.get();
+    }
+
+    private Optional<Constructor<?>> getInjectConstructor(Class<?> clazz) {
+        return Arrays.stream(clazz.getConstructors()).filter(constructor -> constructor.isAnnotationPresent(Inject.class)).findFirst();
+    }
+
+    private Optional<Object> getInstanceIfPresent(Class<?> clazz) {
+        for (Map.Entry<Class<?>, Set<Class<?>>> classSetEntry : scopeMap.entrySet()) {
+            if (classSetEntry.getValue().contains(clazz)) {
+                if (scopedObjectsMap.get(classSetEntry.getKey()).containsKey(clazz))
+                    return Optional.of(scopedObjectsMap.get(classSetEntry.getKey()).get(clazz));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Optional<Class<?>> getScopeForClass(Class<?> clazz) {
+        for (Map.Entry<Class<?>, Set<Class<?>>> scope : scopeMap.entrySet()) {
+            if (scope.getValue().contains(clazz)) {
+                return Optional.of(scope.getKey());
+            }
+        }
+        return Optional.empty();
+    }
+
+    private void setFieldOfTypeForInstance(Class<?> fieldType, Object injectedInstance, Object injectionTarget){
+        Class<?> injectionTargetClass = injectionTarget.getClass();
+        for (Field field : injectionTargetClass.getFields()) {
+            if(field.getType().equals(fieldType)){
+                try {
+                    field.set(injectionTarget, injectedInstance);
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+}
