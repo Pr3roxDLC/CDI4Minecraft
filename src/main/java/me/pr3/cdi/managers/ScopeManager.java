@@ -1,6 +1,5 @@
 package me.pr3.cdi.managers;
 
-import it.unimi.dsi.fastutil.Hash;
 import me.pr3.cdi.annotations.Inject;
 import me.pr3.cdi.annotations.PostConstruct;
 import me.pr3.cdi.annotations.scopes.Scope;
@@ -30,6 +29,7 @@ public class ScopeManager {
     HashMap<Class<?>, Set<Class<?>>> scopeMap; //Map<ScopeClass,Set<ScopedClass>>
     HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Set<Instance>>
     HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
+
 
 
     public ScopeManager() {
