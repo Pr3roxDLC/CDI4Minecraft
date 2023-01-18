@@ -4,6 +4,8 @@ import me.pr3.cdi.annotations.Inject;
 import me.pr3.cdi.annotations.PostConstruct;
 import me.pr3.cdi.annotations.scopes.Scope;
 import me.pr3.cdi.api.Injectable;
+import me.pr3.cdi.api.ScopeManagerExtension;
+import me.pr3.cdi.extensions.settings.annotations.ClientSetting;
 import net.minecraftforge.common.MinecraftForge;
 import org.reflections.Reflections;
 
@@ -31,6 +33,8 @@ public class ScopeManager {
     HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Set<Instance>>
     HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
 
+    private List<ScopeManagerExtension> installedExtensions = new ArrayList<>();
+
     public ScopeManager() {
         MinecraftForge.EVENT_BUS.register(this);
         scopes = getScopes();
@@ -40,6 +44,11 @@ public class ScopeManager {
 
         INSTANCE = this;
         GAME_SCOPE_EVENT_MANAGER = new GameScopeEventManager();
+        installedExtensions.forEach(extension -> extension.onScopeManagerInit(this));
+    }
+
+    public void installExtension(ScopeManagerExtension scopeManagerExtension){
+        installedExtensions.add(scopeManagerExtension);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -111,6 +120,7 @@ public class ScopeManager {
                 }
             });
         }
+        installedExtensions.forEach(extension -> extension.onInitScope(scope, this));
     }
 
     public Object createNewInstance(Class<?> clazz) {
@@ -152,6 +162,7 @@ public class ScopeManager {
         getScopeForClass(clazz).ifPresent(scope -> {
             scopedObjectsMap.get(scope).put(clazz, atomicReference.get());
         });
+        installedExtensions.forEach(extension -> extension.onCreateInstance(clazz, atomicReference.get(), this));
         getPostConstruct(clazz).ifPresent(method -> {
             try {
                 method.invoke(atomicReference.get());
