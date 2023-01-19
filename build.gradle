@@ -109,6 +109,8 @@ dependencies {
 
 // Example for how to get properties into the manifest for reading at runtime.
 jar {
+    //Exclude Main class when building
+    exclude("me/pr3/cdi/Cdi.class")
     manifest {
         attributes([
                 "Specification-Title"     : "cdiforminecraft",

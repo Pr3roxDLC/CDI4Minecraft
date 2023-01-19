@@ -15,15 +15,12 @@ import static me.pr3.cdi.extensions.events.annotations.filters.If.PLAYER_NON_NUL
 
 @ClientScoped
 public class Car {
+
     @ClientSetting("hp")
     String hp = "400";
 
-    public Car() {
-    }
-
     @PostConstruct
     public void postConstruct() {
-      //  System.out.println("Created Car with engine " + engine + " with " + hp + " Horse Power");
         EventManager.subscribe(this);
     }
 
