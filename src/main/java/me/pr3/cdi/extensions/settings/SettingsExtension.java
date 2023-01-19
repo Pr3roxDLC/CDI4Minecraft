@@ -19,7 +19,7 @@ public class SettingsExtension implements ScopeManagerExtension {
         //Populate settings map from some file
         scopeManager.getScopeMap().forEach((scope, classes) -> {
             classes.forEach(clazz -> {
-                for (Field field : clazz.getFields()) {
+                for (Field field : clazz.getDeclaredFields()) {
                     if(field.isAnnotationPresent(ClientSetting.class)){
                         settings.put(field.getAnnotation(ClientSetting.class).value(), getValue(field.getAnnotation(ClientSetting.class).value()));
                     }
@@ -34,12 +34,13 @@ public class SettingsExtension implements ScopeManagerExtension {
 
     @Override
     public void onCreateInstance(Class<?> clazz, Object object, ScopeManager scopeManager) {
-        for(Field field : clazz.getFields()){
+        for(Field field : clazz.getDeclaredFields()){
             if(field.isAnnotationPresent(ClientSetting.class)){
                String settingName = field.getAnnotation(ClientSetting.class).value();
                Optional<Object> optionalValue = settings.get(settingName);
                optionalValue.ifPresent(value -> {
                    try {
+                       field.setAccessible(true);
                        field.set(object, value);
                    } catch (IllegalAccessException e) {
                        throw new RuntimeException(e);

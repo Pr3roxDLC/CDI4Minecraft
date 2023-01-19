@@ -63,7 +63,7 @@ public class ScopeManager {
         for (Class<?> injectedClass : allScopedClasses) {
             HashSet<Class<?>> targetsForInjectedClass = new HashSet<>();
             for (Class<?> targetClass : allScopedClasses) {
-                for (Field field : targetClass.getFields()) {
+                for (Field field : targetClass.getDeclaredFields()) {
                     if (field.isAnnotationPresent(Inject.class) && field.getType().equals(injectedClass)) {
                         targetsForInjectedClass.add(targetClass);
                     }
@@ -150,10 +150,11 @@ public class ScopeManager {
             }
         }
         //Now populate fields
-        for (Field field : clazz.getFields()) {
+        for (Field field : clazz.getDeclaredFields()) {
             if (field.isAnnotationPresent(Inject.class)) {
                 Class<?> fieldType = field.getType();
                 try {
+                    field.setAccessible(true);
                     field.set(atomicReference.get(), getInstanceIfPresent(fieldType).orElseGet(() -> createNewInstance(fieldType)));
                 } catch (IllegalAccessException e) {
                     throw new RuntimeException(e);
@@ -199,9 +200,10 @@ public class ScopeManager {
 
     private void setFieldOfTypeForInstance(Class<?> fieldType, Object injectedInstance, Object injectionTarget){
         Class<?> injectionTargetClass = injectionTarget.getClass();
-        for (Field field : injectionTargetClass.getFields()) {
+        for (Field field : injectionTargetClass.getDeclaredFields()) {
             if(field.getType().equals(fieldType)){
                 try {
+                    field.setAccessible(true);
                     field.set(injectionTarget, injectedInstance);
                 } catch (IllegalAccessException e) {
                     throw new RuntimeException(e);

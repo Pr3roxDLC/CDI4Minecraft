@@ -11,10 +11,10 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 @ClientScoped
 public class    Car {
     @Inject
-    public Engine engine;
+    Engine engine;
 
     @ClientSetting("hp")
-    public String hp;
+    String hp = "400";
 
     public Car(){
     }
