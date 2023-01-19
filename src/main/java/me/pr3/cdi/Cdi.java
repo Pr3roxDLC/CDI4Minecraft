@@ -1,5 +1,6 @@
 package me.pr3.cdi;
 
+import me.pr3.cdi.extensions.events.EventSystemExtension;
 import me.pr3.cdi.extensions.settings.SettingsExtension;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
@@ -34,7 +35,7 @@ public class Cdi {
      */
     @Mod.EventHandler
     public void preinit(FMLPreInitializationEvent event) {
-        EntryPoint.init(new SettingsExtension());
+        EntryPoint.init(new EventSystemExtension());
     }
 
     /**

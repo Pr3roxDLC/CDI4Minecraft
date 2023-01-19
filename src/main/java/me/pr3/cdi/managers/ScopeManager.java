@@ -179,7 +179,7 @@ public class ScopeManager {
         return Arrays.stream(clazz.getConstructors()).filter(constructor -> constructor.isAnnotationPresent(Inject.class)).findFirst();
     }
 
-    private Optional<Object> getInstanceIfPresent(Class<?> clazz) {
+    public Optional<Object> getInstanceIfPresent(Class<?> clazz) {
         for (Map.Entry<Class<?>, Set<Class<?>>> classSetEntry : scopeMap.entrySet()) {
             if (classSetEntry.getValue().contains(clazz)) {
                 if (scopedObjectsMap.get(classSetEntry.getKey()).containsKey(clazz))
