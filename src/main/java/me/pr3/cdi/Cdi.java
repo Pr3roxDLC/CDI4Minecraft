@@ -1,8 +1,10 @@
 package me.pr3.cdi;
 
+import me.pr3.cdi.extensions.events.EventManager;
 import me.pr3.cdi.extensions.events.EventSystemExtension;
 import me.pr3.cdi.extensions.settings.SettingsExtension;
 import net.minecraft.block.Block;
+import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
@@ -11,6 +13,8 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.registry.GameRegistry;
+
+import static me.pr3.cdi.extensions.events.annotations.filters.If.PLAYER_NON_NULL;
 
 @Mod(
         modid = Cdi.MOD_ID,
