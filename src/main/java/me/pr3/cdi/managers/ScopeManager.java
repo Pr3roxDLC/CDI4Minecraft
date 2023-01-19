@@ -36,14 +36,15 @@ public class ScopeManager {
     private List<ScopeManagerExtension> installedExtensions = new ArrayList<>();
 
     public ScopeManager() {
-        MinecraftForge.EVENT_BUS.register(this);
-        scopes = getScopes();
-        scopeMap = getScopeMap();
-        scopedObjectsMap = getEmptyScopedObjectsMap();
-        injectionMap = getInjectionMap();
-
         INSTANCE = this;
         GAME_SCOPE_EVENT_MANAGER = new GameScopeEventManager();
+    }
+
+    public void init(){
+        scopes = generateScopes();
+        scopeMap = generateScopeMap();
+        scopedObjectsMap = generateEmptyScopedObjectsMap();
+        injectionMap = generateInjectionMap();
         installedExtensions.forEach(extension -> extension.onScopeManagerInit(this));
     }
 
@@ -52,7 +53,7 @@ public class ScopeManager {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private HashMap<Class<?>, Set<Class<?>>> getInjectionMap() {
+    private HashMap<Class<?>, Set<Class<?>>> generateInjectionMap() {
         HashMap<Class<?>, Set<Class<?>>> injectionMap = new HashMap<>();
         Reflections ref = new Reflections();
         HashSet<Class<?>> allScopedClasses = new HashSet<>();
@@ -73,12 +74,12 @@ public class ScopeManager {
         return injectionMap;
     }
 
-    private Set<Class<?>> getScopes() {
+    private Set<Class<?>> generateScopes() {
         return new Reflections().getTypesAnnotatedWith(Scope.class).stream().filter(Class::isAnnotation).collect(Collectors.toSet());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private HashMap<Class<?>, Set<Class<?>>> getScopeMap() {
+    private HashMap<Class<?>, Set<Class<?>>> generateScopeMap() {
         Reflections reflections = new Reflections();
         HashMap<Class<?>, Set<Class<?>>> scopeMap = new HashMap<>();
         for (Class clazz : scopes) {
@@ -88,7 +89,7 @@ public class ScopeManager {
         return scopeMap;
     }
 
-    private HashMap<Class<?>, HashMap<Class<?>, Object>> getEmptyScopedObjectsMap() {
+    private HashMap<Class<?>, HashMap<Class<?>, Object>> generateEmptyScopedObjectsMap() {
         return new HashMap<Class<?>, HashMap<Class<?>, Object>>() {{
             for (Class<?> scope : scopes) {
                 put(scope, new HashMap<>());
@@ -213,4 +214,23 @@ public class ScopeManager {
         return Arrays.stream(clazz.getMethods()).filter(method -> method.isAnnotationPresent(PostConstruct.class)).findFirst();
     }
 
+    public Set<Class<?>> getScopes() {
+        return scopes;
+    }
+
+    public HashMap<Class<?>, Set<Class<?>>> getScopeMap() {
+        return scopeMap;
+    }
+
+    public HashMap<Class<?>, HashMap<Class<?>, Object>> getScopedObjectsMap() {
+        return scopedObjectsMap;
+    }
+
+    public HashMap<Class<?>, Set<Class<?>>> getInjectionMap() {
+        return injectionMap;
+    }
+
+    public List<ScopeManagerExtension> getInstalledExtensions() {
+        return installedExtensions;
+    }
 }

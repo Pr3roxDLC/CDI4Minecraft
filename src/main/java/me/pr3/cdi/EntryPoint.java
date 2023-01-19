@@ -13,6 +13,7 @@ public class EntryPoint {
         for (ScopeManagerExtension extension : extensions) {
             scopeManager.installExtension(extension);
         }
+        scopeManager.init();
         scopeManager.initScope(ClientScoped.class);
     }
 }
