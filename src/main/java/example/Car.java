@@ -16,6 +16,9 @@ import static me.pr3.cdi.extensions.events.annotations.filters.If.PLAYER_NON_NUL
 @ClientScoped
 public class Car {
 
+    @Inject
+    Engine engine;
+
     @ClientSetting("hp")
     String hp = "400";
 

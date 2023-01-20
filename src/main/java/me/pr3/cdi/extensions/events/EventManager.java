@@ -9,13 +9,10 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.jetbrains.annotations.NotNull;
-import scala.reflect.internal.Trees;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static me.pr3.cdi.extensions.events.annotations.filters.If.*;
