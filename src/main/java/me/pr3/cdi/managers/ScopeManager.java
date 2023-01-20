@@ -5,8 +5,9 @@ import me.pr3.cdi.annotations.PostConstruct;
 import me.pr3.cdi.annotations.scopes.Scope;
 import me.pr3.cdi.api.Injectable;
 import me.pr3.cdi.api.ScopeManagerExtension;
-import me.pr3.cdi.extensions.settings.annotations.ClientSetting;
 import net.minecraftforge.common.MinecraftForge;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.reflections.Reflections;
 
 import java.lang.reflect.Constructor;
@@ -25,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 
+@SuppressWarnings({"unused","rawtypes","unchecked"})
 public class ScopeManager {
     public static ScopeManager INSTANCE;
     public GameScopeEventManager GAME_SCOPE_EVENT_MANAGER;
@@ -33,7 +35,7 @@ public class ScopeManager {
     HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Set<Instance>>
     HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
 
-    private List<ScopeManagerExtension> installedExtensions = new ArrayList<>();
+    private final List<ScopeManagerExtension> installedExtensions = new ArrayList<>();
 
     public ScopeManager() {
         INSTANCE = this;
@@ -52,8 +54,7 @@ public class ScopeManager {
         installedExtensions.add(scopeManagerExtension);
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private HashMap<Class<?>, Set<Class<?>>> generateInjectionMap() {
+    private @NotNull HashMap<Class<?>, Set<Class<?>>> generateInjectionMap() {
         HashMap<Class<?>, Set<Class<?>>> injectionMap = new HashMap<>();
         Reflections ref = new Reflections();
         HashSet<Class<?>> allScopedClasses = new HashSet<>();
@@ -78,8 +79,7 @@ public class ScopeManager {
         return new Reflections().getTypesAnnotatedWith(Scope.class).stream().filter(Class::isAnnotation).collect(Collectors.toSet());
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private HashMap<Class<?>, Set<Class<?>>> generateScopeMap() {
+    private @NotNull HashMap<Class<?>, Set<Class<?>>> generateScopeMap() {
         Reflections reflections = new Reflections();
         HashMap<Class<?>, Set<Class<?>>> scopeMap = new HashMap<>();
         for (Class clazz : scopes) {
@@ -89,7 +89,8 @@ public class ScopeManager {
         return scopeMap;
     }
 
-    private HashMap<Class<?>, HashMap<Class<?>, Object>> generateEmptyScopedObjectsMap() {
+    @Contract(" -> new")
+    private @NotNull HashMap<Class<?>, HashMap<Class<?>, Object>> generateEmptyScopedObjectsMap() {
         return new HashMap<Class<?>, HashMap<Class<?>, Object>>() {{
             for (Class<?> scope : scopes) {
                 put(scope, new HashMap<>());
@@ -175,7 +176,7 @@ public class ScopeManager {
         return atomicReference.get();
     }
 
-    private Optional<Constructor<?>> getInjectConstructor(Class<?> clazz) {
+    private @NotNull Optional<Constructor<?>> getInjectConstructor(@NotNull Class<?> clazz) {
         return Arrays.stream(clazz.getConstructors()).filter(constructor -> constructor.isAnnotationPresent(Inject.class)).findFirst();
     }
 
@@ -198,7 +199,7 @@ public class ScopeManager {
         return Optional.empty();
     }
 
-    private void setFieldOfTypeForInstance(Class<?> fieldType, Object injectedInstance, Object injectionTarget){
+    private void setFieldOfTypeForInstance(Class<?> fieldType, Object injectedInstance, @NotNull Object injectionTarget){
         Class<?> injectionTargetClass = injectionTarget.getClass();
         for (Field field : injectionTargetClass.getDeclaredFields()) {
             if(field.getType().equals(fieldType)){
@@ -212,7 +213,7 @@ public class ScopeManager {
         }
     }
 
-    private Optional<Method> getPostConstruct(Class<?> clazz){
+    private @NotNull Optional<Method> getPostConstruct(@NotNull Class<?> clazz){
         return Arrays.stream(clazz.getMethods()).filter(method -> method.isAnnotationPresent(PostConstruct.class)).findFirst();
     }
 

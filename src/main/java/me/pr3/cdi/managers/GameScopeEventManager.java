@@ -9,8 +9,10 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.PlayerEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+import org.jetbrains.annotations.NotNull;
 
 import static me.pr3.cdi.managers.ScopeManager.INSTANCE;
+import static net.minecraftforge.fml.common.network.FMLNetworkEvent.*;
 
 public class GameScopeEventManager {
     public GameScopeEventManager(){
@@ -18,7 +20,7 @@ public class GameScopeEventManager {
     }
 
     @SubscribeEvent
-    public void onServerConnectedEvent(FMLNetworkEvent.ClientConnectedToServerEvent e) {
+    public void onServerConnectedEvent(@NotNull ClientConnectedToServerEvent e) {
         System.out.println("Connected to Server: " + e.getConnectionType());
         INSTANCE.initScope(SessionScoped.class);
         INSTANCE.initScope(WorldScoped.class);
@@ -26,7 +28,7 @@ public class GameScopeEventManager {
     }
 
     @SubscribeEvent
-    public void onPlayerDeath(LivingDeathEvent e) {
+    public void onPlayerDeath(@NotNull LivingDeathEvent e) {
         if (e.getEntity().equals(Minecraft.getMinecraft().player)) {
             INSTANCE.initScope(LifeScoped.class);
         }

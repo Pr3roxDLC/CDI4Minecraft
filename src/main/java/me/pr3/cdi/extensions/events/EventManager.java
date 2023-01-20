@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import org.jetbrains.annotations.NotNull;
 import scala.reflect.internal.Trees;
 
 import java.lang.reflect.InvocationTargetException;
@@ -27,7 +28,7 @@ public class EventManager {
     private final ScopeManager scopeManager;
     private static EventManager INSTANCE;
 
-    public EventManager(ScopeManager scopeManager) {
+    public EventManager(@NotNull ScopeManager scopeManager) {
         this.scopeManager = scopeManager;
         targets = new HashMap<>();
         listeners = new HashMap<>();
@@ -56,7 +57,7 @@ public class EventManager {
         INSTANCE = this;
     }
 
-    public static void subscribe(Object o) {
+    public static void subscribe(@NotNull Object o) {
         Class<?> clazz = o.getClass();
         Set<Class<?>> eventsThisClassListensTo = targets.get(clazz).keySet();
         eventsThisClassListensTo.forEach(eventClass -> {
@@ -64,7 +65,7 @@ public class EventManager {
         });
     }
 
-    public static void unsubscribe(Object o) {
+    public static void unsubscribe(@NotNull Object o) {
         Class<?> clazz = o.getClass();
         Set<Class<?>> eventsThisClassListensTo = targets.get(clazz).keySet();
         eventsThisClassListensTo.forEach(eventClass -> {
@@ -81,7 +82,7 @@ public class EventManager {
     }
 
     @SubscribeEvent
-    public void onEvent(Event event) {
+    public void onEvent(@NotNull Event event) {
         if (!listeners.containsKey(event.getClass())) return;
         listeners.get(event.getClass()).forEach(listener -> {
             Method target = targets.get(listener.getClass()).get(event.getClass());

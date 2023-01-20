@@ -3,6 +3,7 @@ package me.pr3.cdi.extensions.settings;
 import me.pr3.cdi.api.ScopeManagerExtension;
 import me.pr3.cdi.extensions.settings.annotations.ClientSetting;
 import me.pr3.cdi.managers.ScopeManager;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
@@ -15,7 +16,7 @@ public class SettingsExtension implements ScopeManagerExtension {
 
     Map<String, Optional<Object>> settings = new HashMap<>();
     @Override
-    public void onScopeManagerInit(ScopeManager scopeManager) {
+    public void onScopeManagerInit(@NotNull ScopeManager scopeManager) {
         //Populate settings map from some file
         scopeManager.getScopeMap().forEach((scope, classes) -> {
             classes.forEach(clazz -> {
@@ -33,7 +34,7 @@ public class SettingsExtension implements ScopeManagerExtension {
     }
 
     @Override
-    public void onCreateInstance(Class<?> clazz, Object object, ScopeManager scopeManager) {
+    public void onCreateInstance(@NotNull Class<?> clazz, Object object, ScopeManager scopeManager) {
         for(Field field : clazz.getDeclaredFields()){
             if(field.isAnnotationPresent(ClientSetting.class)){
                String settingName = field.getAnnotation(ClientSetting.class).value();
