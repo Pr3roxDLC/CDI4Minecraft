@@ -2,6 +2,7 @@ package me.pr3.cdi.managers;
 
 import me.pr3.cdi.annotations.Inject;
 import me.pr3.cdi.annotations.PostConstruct;
+import me.pr3.cdi.annotations.Specializes;
 import me.pr3.cdi.annotations.scopes.Scope;
 import me.pr3.cdi.api.Injectable;
 import me.pr3.cdi.api.ScopeManagerExtension;
@@ -14,14 +15,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -34,7 +28,7 @@ public class ScopeManager {
     HashMap<Class<?>, Set<Class<?>>> scopeMap; //Map<ScopeClass,Set<ScopedClass>>
     HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Set<Instance>>
     HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
-
+    HashMap<Class<?>, Class<?>> specializationMap; //Map<Class, SpecializedBy>
     private final List<ScopeManagerExtension> installedExtensions = new ArrayList<>();
 
     public ScopeManager() {
@@ -47,7 +41,18 @@ public class ScopeManager {
         scopeMap = generateScopeMap();
         scopedObjectsMap = generateEmptyScopedObjectsMap();
         injectionMap = generateInjectionMap();
+        specializationMap = generateSpecializationMap();
         installedExtensions.forEach(extension -> extension.onScopeManagerInit(this));
+    }
+
+    private @NotNull HashMap<Class<?>, Class<?>> generateSpecializationMap() {
+        HashMap<Class<?>, Class<?>> map = new HashMap<>();
+        Reflections reflections = new Reflections();
+        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(Specializes.class);
+        classes.forEach(clazz -> {
+                map.put(clazz.getSuperclass(), clazz);
+        });
+        return map;
     }
 
     public void installExtension(ScopeManagerExtension scopeManagerExtension){
@@ -83,7 +88,10 @@ public class ScopeManager {
         Reflections reflections = new Reflections();
         HashMap<Class<?>, Set<Class<?>>> scopeMap = new HashMap<>();
         for (Class clazz : scopes) {
-            Set<Class<?>> scopedClasses = reflections.getTypesAnnotatedWith(clazz);
+            Set<Class<?>> scopedClasses = ((Set<Class<?>>)reflections.getTypesAnnotatedWith(clazz))
+                            .stream()
+                            .filter(annotatedClass -> !annotatedClass.isAnnotationPresent(Specializes.class))
+                            .collect(Collectors.toSet());
             scopeMap.put(clazz, scopedClasses);
         }
         return scopeMap;
@@ -125,8 +133,10 @@ public class ScopeManager {
         installedExtensions.forEach(extension -> extension.onInitScope(scope, this));
     }
 
-    public Object createNewInstance(Class<?> clazz) {
+    public Object createNewInstance(Class<?> clazzIn) {
         AtomicReference<Object> atomicReference = new AtomicReference<>();
+        //Intercept and produce specialization instance instead
+        Class<?> clazz = specializationMap.getOrDefault(clazzIn, clazzIn);
         //Create Populate Instance with injected instances from constructor
         getInjectConstructor(clazz).ifPresent(constructor -> {
             Class<?>[] parameterTypes = constructor.getParameterTypes();
@@ -162,8 +172,8 @@ public class ScopeManager {
                 }
             }
         }
-        getScopeForClass(clazz).ifPresent(scope -> {
-            scopedObjectsMap.get(scope).put(clazz, atomicReference.get());
+        getScopeForClass(clazzIn).ifPresent(scope -> {
+            scopedObjectsMap.get(scope).put(clazzIn, atomicReference.get());
         });
         installedExtensions.forEach(extension -> extension.onCreateInstance(clazz, atomicReference.get(), this));
         getPostConstruct(clazz).ifPresent(method -> {
