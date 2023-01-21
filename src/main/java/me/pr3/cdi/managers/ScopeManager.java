@@ -81,6 +81,15 @@ public class ScopeManager {
         return injectionMap;
     }
 
+    //Allows to create a one time use instance of an unscoped class, everytime this is called, a new instance will be populated or
+    //returns the current instance of a scoped class
+    public <T> T getInstance(Class<T> clazz){
+        Class<?> scope = getScopeForClass(clazz).orElse(null);
+        if(scope!=null){
+           return (T)scopedObjectsMap.get(scope).get(clazz);
+        }
+        return createNewInstance(clazz);
+    }
 
     private @NotNull HashMap<Class<?>, Set<Class<?>>> generateScopeMap() {
         Reflections reflections = new Reflections();
@@ -131,8 +140,8 @@ public class ScopeManager {
         installedExtensions.forEach(extension -> extension.onInitScope(scope, this));
     }
 
-    public Object createNewInstance(Class<?> clazzIn) {
-        AtomicReference<Object> atomicReference = new AtomicReference<>();
+    public <T> T createNewInstance(Class<?> clazzIn) {
+        AtomicReference<T> atomicReference = new AtomicReference<>();
         //Intercept and produce specialization instance instead
         Class<?> clazz = specializationMap.getOrDefault(clazzIn, clazzIn);
         //Create Populate Instance with injected instances from constructor
@@ -143,7 +152,7 @@ public class ScopeManager {
                 parameterInstances.add(getInstanceIfPresent(parameterType).orElseGet(() -> createNewInstance(parameterType)));
             }
             try {
-                atomicReference.set(constructor.newInstance(parameterInstances.toArray()));
+                atomicReference.set((T)constructor.newInstance(parameterInstances.toArray()));
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException(e);
             }
@@ -152,7 +161,7 @@ public class ScopeManager {
         //@Inject Annotated Fields
         if (atomicReference.get() == null) {
             try {
-                atomicReference.set(clazz.getDeclaredConstructor().newInstance());
+                atomicReference.set((T)clazz.getDeclaredConstructor().newInstance());
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                      NoSuchMethodException e) {
                 throw new RuntimeException(e);
