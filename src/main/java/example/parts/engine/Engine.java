@@ -1,4 +1,4 @@
-package example;
+package example.parts.engine;
 
 import me.pr3.cdi.annotations.scopes.SessionScoped;
 

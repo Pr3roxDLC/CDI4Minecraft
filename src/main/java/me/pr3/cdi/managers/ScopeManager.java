@@ -6,6 +6,7 @@ import me.pr3.cdi.annotations.Specializes;
 import me.pr3.cdi.annotations.scopes.Scope;
 import me.pr3.cdi.api.Injectable;
 import me.pr3.cdi.api.ScopeManagerExtension;
+import me.pr3.cdi.util.ClassUtil;
 import net.minecraftforge.common.MinecraftForge;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -37,7 +38,7 @@ public class ScopeManager {
     }
 
     public void init(){
-        scopes = generateScopes();
+        scopes = ClassUtil.generateScopes();
         scopeMap = generateScopeMap();
         scopedObjectsMap = generateEmptyScopedObjectsMap();
         injectionMap = generateInjectionMap();
@@ -80,9 +81,6 @@ public class ScopeManager {
         return injectionMap;
     }
 
-    private Set<Class<?>> generateScopes() {
-        return new Reflections().getTypesAnnotatedWith(Scope.class).stream().filter(Class::isAnnotation).collect(Collectors.toSet());
-    }
 
     private @NotNull HashMap<Class<?>, Set<Class<?>>> generateScopeMap() {
         Reflections reflections = new Reflections();
@@ -125,7 +123,7 @@ public class ScopeManager {
             getInstanceIfPresent(clazz).ifPresent(injectedInstance -> {
                 for (Class<?> target : injectionMap.get(clazz)) {
                     getInstanceIfPresent(target).ifPresent(injectionTarget -> {
-                        setFieldOfTypeForInstance(clazz, injectedInstance, injectionTarget);
+                        ClassUtil.setFieldOfTypeForInstance(clazz, injectedInstance, injectionTarget);
                     });
                 }
             });
@@ -138,7 +136,7 @@ public class ScopeManager {
         //Intercept and produce specialization instance instead
         Class<?> clazz = specializationMap.getOrDefault(clazzIn, clazzIn);
         //Create Populate Instance with injected instances from constructor
-        getInjectConstructor(clazz).ifPresent(constructor -> {
+        ClassUtil.getInjectConstructor(clazz).ifPresent(constructor -> {
             Class<?>[] parameterTypes = constructor.getParameterTypes();
             List<Object> parameterInstances = new ArrayList<>();
             for (Class<?> parameterType : parameterTypes) {
@@ -161,7 +159,7 @@ public class ScopeManager {
             }
         }
         //Now populate fields
-        for (Field field : clazz.getDeclaredFields()) {
+        for (Field field : ClassUtil.getAllFields(clazz)) {
             if (field.isAnnotationPresent(Inject.class)) {
                 Class<?> fieldType = field.getType();
                 try {
@@ -176,7 +174,7 @@ public class ScopeManager {
             scopedObjectsMap.get(scope).put(clazzIn, atomicReference.get());
         });
         installedExtensions.forEach(extension -> extension.onCreateInstance(clazz, atomicReference.get(), this));
-        getPostConstruct(clazz).ifPresent(method -> {
+        ClassUtil.getPostConstruct(clazz).ifPresent(method -> {
             try {
                 method.invoke(atomicReference.get());
             } catch (IllegalAccessException | InvocationTargetException e) {
@@ -186,9 +184,7 @@ public class ScopeManager {
         return atomicReference.get();
     }
 
-    private @NotNull Optional<Constructor<?>> getInjectConstructor(@NotNull Class<?> clazz) {
-        return Arrays.stream(clazz.getConstructors()).filter(constructor -> constructor.isAnnotationPresent(Inject.class)).findFirst();
-    }
+
 
     public Optional<Object> getInstanceIfPresent(Class<?> clazz) {
         for (Map.Entry<Class<?>, Set<Class<?>>> classSetEntry : scopeMap.entrySet()) {
@@ -207,24 +203,6 @@ public class ScopeManager {
             }
         }
         return Optional.empty();
-    }
-
-    private void setFieldOfTypeForInstance(Class<?> fieldType, Object injectedInstance, @NotNull Object injectionTarget){
-        Class<?> injectionTargetClass = injectionTarget.getClass();
-        for (Field field : injectionTargetClass.getDeclaredFields()) {
-            if(field.getType().equals(fieldType)){
-                try {
-                    field.setAccessible(true);
-                    field.set(injectionTarget, injectedInstance);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-        }
-    }
-
-    private @NotNull Optional<Method> getPostConstruct(@NotNull Class<?> clazz){
-        return Arrays.stream(clazz.getMethods()).filter(method -> method.isAnnotationPresent(PostConstruct.class)).findFirst();
     }
 
     public Set<Class<?>> getScopes() {
