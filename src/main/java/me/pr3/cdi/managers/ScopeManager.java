@@ -26,7 +26,7 @@ public class ScopeManager {
     public GameScopeEventManager GAME_SCOPE_EVENT_MANAGER;
     Set<Class<?>> scopes;    //All Registered Scopes
     HashMap<Class<?>, Set<Class<?>>> scopeMap; //Map<ScopeClass,Set<ScopedClass>>
-    HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Set<Instance>>
+    HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Map<ScopedClass, Instance>>
     HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
     HashMap<Class<?>, Class<?>> specializationMap; //Map<Class, SpecializedBy>
     private final List<ScopeManagerExtension> installedExtensions = new ArrayList<>();

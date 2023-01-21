@@ -4,7 +4,7 @@ plugins {
 
 
 group = 'me.pr3'
-version = '1.0'
+version = '1.1'
 
 java {
     archivesBaseName = 'cdi'
@@ -113,6 +113,7 @@ dependencies {
 jar {
     //Exclude Main class when building
     exclude("me/pr3/cdi/Cdi.class")
+    exclude("example/**")
     manifest {
         attributes([
                 "Specification-Title"     : "cdiforminecraft",
