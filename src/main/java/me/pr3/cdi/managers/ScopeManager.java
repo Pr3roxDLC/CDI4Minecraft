@@ -143,7 +143,7 @@ public class ScopeManager {
                 parameterInstances.add(getInstanceIfPresent(parameterType).orElseGet(() -> createNewInstance(parameterType)));
             }
             try {
-                atomicReference.set(constructor.newInstance(parameterInstances));
+                atomicReference.set(constructor.newInstance(parameterInstances.toArray()));
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
                 throw new RuntimeException(e);
             }
