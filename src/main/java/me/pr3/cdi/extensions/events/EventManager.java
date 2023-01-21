@@ -33,7 +33,7 @@ public class EventManager {
         //Build the lookup map
         scopeManager.getScopeMap().values().stream().flatMap(Collection::stream).forEach(clazz -> {
             targets.put(clazz, new HashMap<>());
-            for (Method method : clazz.getMethods()) {
+            for (Method method : clazz.getDeclaredMethods()) {
                 if (method.getParameters().length == 0) continue;
                 if (method.getParameters()[0].isAnnotationPresent(Observes.class)) {
                     targets.get(clazz).put(method.getParameters()[0].getType(), method);
