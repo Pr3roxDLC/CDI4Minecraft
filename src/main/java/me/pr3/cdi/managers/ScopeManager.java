@@ -27,7 +27,7 @@ public class ScopeManager {
     public GameScopeEventManager GAME_SCOPE_EVENT_MANAGER;
     Set<Class<?>> scopes;    //All Registered Scopes
     HashMap<Class<?>, Set<Class<?>>> scopeMap; //Map<ScopeClass,Set<ScopedClass>>
-    HashMap<Class<?>, HashMap<Class<?>, Object>> scopedObjectsMap; //Map<ScopeClass,Map<ScopedClass, Instance>>
+    HashMap<Class<?>, HashMap<Class<?>, AtomicReference<?>>> scopedObjectsMap; //Map<ScopeClass,Map<ScopedClass, Instance>>
     HashMap<Class<?>, Set<Class<?>>> injectionMap; //Map<InjectedClass,Set<TargetClass>>
     HashMap<Class<?>, Class<?>> specializationMap; //Map<Class, SpecializedBy>
     private final List<ScopeManagerExtension> installedExtensions = new ArrayList<>();
@@ -88,7 +88,7 @@ public class ScopeManager {
         if (scope != null) {
             return (T) scopedObjectsMap.get(scope).get(clazz);
         }
-        return createNewInstance(clazz);
+        return (T) createNewInstance(clazz).get();
     }
 
     private @NotNull HashMap<Class<?>, Set<Class<?>>> generateScopeMap() {
@@ -105,8 +105,8 @@ public class ScopeManager {
     }
 
     @Contract(" -> new")
-    private @NotNull HashMap<Class<?>, HashMap<Class<?>, Object>> generateEmptyScopedObjectsMap() {
-        return new HashMap<Class<?>, HashMap<Class<?>, Object>>() {{
+    private @NotNull HashMap<Class<?>, HashMap<Class<?>, AtomicReference<?>>> generateEmptyScopedObjectsMap() {
+        return new HashMap<Class<?>, HashMap<Class<?>, AtomicReference<?>>>() {{
             for (Class<?> scope : scopes) {
                 put(scope, new HashMap<>());
             }
@@ -132,7 +132,7 @@ public class ScopeManager {
             getInstanceIfPresent(clazz).ifPresent(injectedInstance -> {
                 for (Class<?> target : injectionMap.get(clazz)) {
                     getInstanceIfPresent(target).ifPresent(injectionTarget -> {
-                        ClassUtil.setFieldOfTypeForInstance(clazz, injectedInstance, injectionTarget);
+                        ClassUtil.setFieldOfTypeForInstance(clazz, injectedInstance.get(), injectionTarget);
                     });
                 }
             });
@@ -140,8 +140,17 @@ public class ScopeManager {
         installedExtensions.forEach(extension -> extension.onInitScope(scope, this));
     }
 
-    public <T> T createNewInstance(Class<?> clazzIn) {
+    //TODO CLEAN THIS UP!!!!
+    public <T> AtomicReference<T> createNewInstance(Class<?> clazzIn) {
+        if(getInstanceIfPresent(clazzIn).isPresent()){
+           return (AtomicReference<T>) getInstanceIfPresent(clazzIn).get();
+        }
         AtomicReference<T> atomicReference = new AtomicReference<>();
+        if (!getInstanceIfPresent(clazzIn).isPresent()) {
+            getScopeForClass(clazzIn).ifPresent(scope -> {
+                scopedObjectsMap.get(scope).put(clazzIn, atomicReference);
+            });
+        }
         //Intercept and produce specialization instance instead
         Class<?> clazz = specializationMap.getOrDefault(clazzIn, clazzIn);
         //Create Populate Instance with injected instances from constructor
@@ -149,7 +158,7 @@ public class ScopeManager {
             Class<?>[] parameterTypes = constructor.getParameterTypes();
             List<Object> parameterInstances = new ArrayList<>();
             for (Class<?> parameterType : parameterTypes) {
-                parameterInstances.add(getInstanceIfPresent(parameterType).orElseGet(() -> createNewInstance(parameterType)));
+                parameterInstances.add(getInstanceIfPresent(parameterType).orElseGet(() -> createNewInstance(parameterType)).get());
             }
             try {
                 atomicReference.set((T) constructor.newInstance(parameterInstances.toArray()));
@@ -173,16 +182,11 @@ public class ScopeManager {
                 Class<?> fieldType = field.getType();
                 try {
                     field.setAccessible(true);
-                    field.set(atomicReference.get(), getInstanceIfPresent(fieldType).orElseGet(() -> createNewInstance(fieldType)));
+                    field.set(atomicReference.get(), getInstanceIfPresent(fieldType).orElseGet(() -> createNewInstance(fieldType)).get());
                 } catch (IllegalAccessException e) {
                     throw new RuntimeException(e);
                 }
             }
-        }
-        if (!getInstanceIfPresent(clazzIn).isPresent()) {
-            getScopeForClass(clazzIn).ifPresent(scope -> {
-                scopedObjectsMap.get(scope).put(clazzIn, atomicReference.get());
-            });
         }
         installedExtensions.forEach(extension -> extension.onCreateInstance(clazz, atomicReference.get(), this));
         ClassUtil.getPostConstruct(clazz).ifPresent(method -> {
@@ -192,11 +196,11 @@ public class ScopeManager {
                 throw new RuntimeException(e);
             }
         });
-        return atomicReference.get();
+        return atomicReference;
     }
 
 
-    public Optional<Object> getInstanceIfPresent(Class<?> clazz) {
+    public Optional<AtomicReference<?>> getInstanceIfPresent(Class<?> clazz) {
         for (Map.Entry<Class<?>, Set<Class<?>>> classSetEntry : scopeMap.entrySet()) {
             if (classSetEntry.getValue().contains(clazz)) {
                 if (scopedObjectsMap.get(classSetEntry.getKey()).containsKey(clazz))
@@ -223,7 +227,7 @@ public class ScopeManager {
         return scopeMap;
     }
 
-    public HashMap<Class<?>, HashMap<Class<?>, Object>> getScopedObjectsMap() {
+    public HashMap<Class<?>, HashMap<Class<?>, AtomicReference<?>>> getScopedObjectsMap() {
         return scopedObjectsMap;
     }
 
